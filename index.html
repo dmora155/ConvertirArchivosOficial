@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conversión STL/GLB a GLB/USDZ</title>
+    <title>Conversión de Modelos 3D</title>
 
     <!-- Cargar Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -17,38 +17,71 @@
     <!-- Cargar dependencias necesarias para USDZ -->
     <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.js"></script>
 
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f8f8;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            background-color: #ffcc00;
+            color: black;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background-color: #ffbb00;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+        }
+        .option {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            background-color: #fff;
+        }
+    </style>
 </head>
 <body>
-    <h1>Conversión de STL/GLB a GLB/USDZ</h1>
-    <p>Selecciona un archivo STL o GLB y conviértelo automáticamente a GLB y USDZ.</p>
 
-    <div>
-        <input type="file" id="model-file" accept=".stl,.glb">
-        <button onclick="processModel()">Convertir</button>
+    <h1>Conversión de Modelos 3D</h1>
+    <p>Selecciona una opción y sube tu archivo STL o GLB para convertirlo.</p>
+
+    <div class="container">
+        <!-- Opción 1: Convertir STL a GLB y USDZ -->
+        <div class="option">
+            <h2>Convertir STL a GLB y USDZ</h2>
+            <input type="file" id="stl-file" accept=".stl">
+            <button onclick="processSTL()">Convertir STL</button>
+        </div>
+
+        <!-- Opción 2: Convertir GLB a USDZ -->
+        <div class="option">
+            <h2>Convertir GLB a USDZ</h2>
+            <input type="file" id="glb-file" accept=".glb">
+            <button onclick="processGLB()">Convertir GLB</button>
+        </div>
     </div>
 
     <script>
-        function processModel() {
-            const fileInput = document.getElementById('model-file');
+        function processSTL() {
+            const fileInput = document.getElementById('stl-file');
             const file = fileInput.files[0];
 
             if (!file) {
-                alert("Por favor, selecciona un archivo STL o GLB.");
+                alert("Por favor, selecciona un archivo STL.");
                 return;
             }
 
-            const fileName = file.name.toLowerCase();
-
-            if (fileName.endsWith('.stl')) {
-                processSTL(file);
-            } else if (fileName.endsWith('.glb')) {
-                processGLB(file);
-            } else {
-                alert("Formato no soportado. Usa STL o GLB.");
-            }
-        }
-
-        function processSTL(file) {
             const reader = new FileReader();
             reader.onload = function(event) {
                 const loader = new THREE.STLLoader();
@@ -66,7 +99,15 @@
             reader.readAsArrayBuffer(file);
         }
 
-        function processGLB(file) {
+        function processGLB() {
+            const fileInput = document.getElementById('glb-file');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert("Por favor, selecciona un archivo GLB.");
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = function(event) {
                 const loader = new THREE.GLTFLoader();
@@ -118,23 +159,4 @@
         function exportUSDZ(model) {
             const exporter = new THREE.USDZExporter();
             exporter.parse(model).then(function (arraybuffer) {
-                const blob = new Blob([arraybuffer], { type: "model/vnd.usdz+zip" });
-                const url = URL.createObjectURL(blob);
-
-                // Crear enlace de descarga
-                const downloadLink = document.createElement("a");
-                downloadLink.href = url;
-                downloadLink.download = "modelo_convertido.usdz";
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
-
-                alert("Modelo USDZ exportado correctamente.");
-            }).catch(function (error) {
-                console.error("Error al exportar a USDZ:", error);
-                alert("Error al convertir a USDZ. Revisa la consola.");
-            });
-        }
-    </script>
-</body>
-</html>
+                const blob = new Blob([arraybuffer], { type: "model/vnd.us
