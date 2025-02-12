@@ -77,10 +77,10 @@
             mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
             console.log("STL convertido a GLB con factor de escala:", scaleFactor);
-            exportGLB(mesh, convertGLBtoUSDZ);
+            exportGLB(mesh);
         }
 
-        function exportGLB(model, callback) {
+        function exportGLB(model) {
             console.log("Iniciando exportación a GLB...");
             const exporter = new THREE.GLTFExporter();
 
@@ -100,27 +100,34 @@
 
                 alert("Modelo GLB exportado y descargado correctamente.");
 
-                // Llamar a la conversión a USDZ
-                callback(gltf);
+                // Enviar directamente el blob a la conversión USDZ
+                convertGLBtoUSDZ(blob);
 
             }, { binary: true });
         }
 
-        function convertGLBtoUSDZ(arrayBuffer) {
-            const loader = new THREE.GLTFLoader();
-            loader.parse(arrayBuffer, '', function(gltf) {
-                const scene = gltf.scene;
-                console.log("GLB cargado en la escena.");
+        function convertGLBtoUSDZ(blob) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const arrayBuffer = event.target.result;
 
-                ensureUVs(scene); // Generar UVs si faltan
+                const loader = new THREE.GLTFLoader();
+                loader.parse(arrayBuffer, '', function(gltf) {
+                    const scene = gltf.scene;
+                    console.log("GLB cargado en la escena.");
 
-                const scaleFactor = detectUnitAndAdjustScale(scene);
-                console.log(`Factor de escala aplicado: ${scaleFactor}`);
+                    ensureUVs(scene); // Generar UVs si faltan
 
-                exportUSDZ(scene);
-            }, function(error) {
-                console.error("Error al cargar GLB:", error);
-            });
+                    const scaleFactor = detectUnitAndAdjustScale(scene);
+                    console.log(`Factor de escala aplicado: ${scaleFactor}`);
+
+                    exportUSDZ(scene);
+                }, function(error) {
+                    console.error("Error al cargar GLB:", error);
+                    alert("Error al procesar el archivo GLB.");
+                });
+            };
+            reader.readAsArrayBuffer(blob);
         }
 
         function ensureUVs(model) {
