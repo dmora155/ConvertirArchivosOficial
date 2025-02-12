@@ -3,30 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conversión STL ↔ GLB ↔ USDZ</title>
+    <title>Conversión STL/GLB a GLB/USDZ</title>
 
     <!-- Cargar Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-    <!-- Cargar STLLoader, GLTFLoader, GLTFExporter y USDZExporter -->
+    <!-- Cargar STLLoader, GLTFLoader y los exportadores -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/STLLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/GLTFExporter.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/USDZExporter.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/exporters/USDZExporter.js"></script>
 
-    <!-- Fflate para evitar errores en la conversión a USDZ -->
+    <!-- Cargar dependencias necesarias para USDZ -->
     <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.js"></script>
+
 </head>
 <body>
-    <h1>Conversión STL ↔ GLB ↔ USDZ</h1>
+    <h1>Conversión de STL/GLB a GLB/USDZ</h1>
+    <p>Selecciona un archivo STL o GLB y conviértelo automáticamente a GLB y USDZ.</p>
 
-    <h2>Sube un STL o GLB</h2>
-    <input type="file" id="file-input" accept=".stl, .glb">
-    <button onclick="processFile()">Subir y Convertir</button>
+    <div>
+        <input type="file" id="model-file" accept=".stl,.glb">
+        <button onclick="processModel()">Convertir</button>
+    </div>
 
     <script>
-        function processFile() {
-            const fileInput = document.getElementById('file-input');
+        function processModel() {
+            const fileInput = document.getElementById('model-file');
             const file = fileInput.files[0];
 
             if (!file) {
@@ -34,147 +37,103 @@
                 return;
             }
 
-            const extension = file.name.split('.').pop().toLowerCase();
-            if (extension === "stl") {
+            const fileName = file.name.toLowerCase();
+
+            if (fileName.endsWith('.stl')) {
                 processSTL(file);
-            } else if (extension === "glb") {
-                verifyAndConvertGLB(file);
+            } else if (fileName.endsWith('.glb')) {
+                processGLB(file);
             } else {
-                alert("Formato no soportado. Solo STL o GLB.");
+                alert("Formato no soportado. Usa STL o GLB.");
             }
         }
 
         function processSTL(file) {
             const reader = new FileReader();
             reader.onload = function(event) {
-                console.log("Archivo STL cargado correctamente.");
-
                 const loader = new THREE.STLLoader();
                 const geometry = loader.parse(event.target.result);
                 const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
                 const mesh = new THREE.Mesh(geometry, material);
 
-                // Escalar correctamente
-                const scaleFactor = detectAndFixScale(mesh);
-                applyScaleToGeometry(mesh, scaleFactor);
-                console.log(`Escalado con factor: ${scaleFactor}`);
+                // Aplicar escala
+                const scaleFactor = detectScale(mesh);
+                mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
+                console.log(`Archivo STL procesado con factor de escala: ${scaleFactor}`);
                 exportGLB(mesh);
             };
-
             reader.readAsArrayBuffer(file);
         }
 
-        function verifyAndConvertGLB(file) {
+        function processGLB(file) {
             const reader = new FileReader();
             reader.onload = function(event) {
-                console.log("Archivo GLB cargado correctamente.");
-
                 const loader = new THREE.GLTFLoader();
                 loader.parse(event.target.result, '', function(gltf) {
                     const scene = gltf.scene;
-                    console.log("GLB cargado en la escena.");
 
-                    ensureUVs(scene);
-                    const scaleFactor = detectAndFixScale(scene);
-                    applyScaleToGeometry(scene, scaleFactor);
+                    // Ajustar escala si es necesario
+                    const scaleFactor = detectScale(scene);
+                    scene.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
-                    exportGLB(scene); // Guardar el GLB corregido
-                    exportUSDZ(scene, scaleFactor); // Convertir a USDZ
-                }, function(error) {
-                    console.error("Error al cargar GLB:", error);
+                    console.log(`Archivo GLB procesado con factor de escala: ${scaleFactor}`);
+                    exportUSDZ(scene);
                 });
             };
-
             reader.readAsArrayBuffer(file);
         }
 
+        function detectScale(model) {
+            const boundingBox = new THREE.Box3().setFromObject(model);
+            const size = boundingBox.getSize(new THREE.Vector3());
+            const maxDimension = Math.max(size.x, size.y, size.z);
+
+            if (maxDimension > 1000) return 0.001; // mm a metros
+            if (maxDimension > 100) return 0.01; // cm a metros
+            return 1; // Ya está en metros
+        }
+
         function exportGLB(model) {
-            console.log("Iniciando exportación a GLB...");
             const exporter = new THREE.GLTFExporter();
-
-            exporter.parse(model, function (gltf) {
-                console.log("GLB exportado correctamente.");
-
+            exporter.parse(model, function(gltf) {
                 const blob = new Blob([gltf], { type: "model/gltf-binary" });
                 const url = URL.createObjectURL(blob);
 
-                console.log("URL del archivo GLB generado:", url);
+                // Crear enlace de descarga
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                downloadLink.download = 'modelo_convertido.glb';
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
 
-                // Descargar automáticamente el GLB
-                downloadFile(url, "modelo_convertido.glb");
-
-                // Convertir automáticamente el GLB a USDZ
-                exportUSDZ(model, 1);
+                alert("Modelo GLB exportado correctamente.");
+                
+                // Proceder a convertir a USDZ
+                exportUSDZ(model);
             }, { binary: true });
         }
 
-        function exportUSDZ(model, scaleFactor) {
-            console.log("Iniciando exportación a USDZ...");
-            applyScaleToGeometry(model, scaleFactor);
-
+        function exportUSDZ(model) {
             const exporter = new THREE.USDZExporter();
             exporter.parse(model).then(function (arraybuffer) {
-                console.log("USDZ exportado correctamente.");
-
                 const blob = new Blob([arraybuffer], { type: "model/vnd.usdz+zip" });
                 const url = URL.createObjectURL(blob);
 
-                // Descargar automáticamente el USDZ
-                downloadFile(url, "modelo_convertido.usdz");
+                // Crear enlace de descarga
+                const downloadLink = document.createElement("a");
+                downloadLink.href = url;
+                downloadLink.download = "modelo_convertido.usdz";
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+
+                alert("Modelo USDZ exportado correctamente.");
+            }).catch(function (error) {
+                console.error("Error al exportar a USDZ:", error);
+                alert("Error al convertir a USDZ. Revisa la consola.");
             });
-        }
-
-        function ensureUVs(model) {
-            model.traverse((child) => {
-                if (child.isMesh) {
-                    if (!child.geometry.attributes.uv) {
-                        console.warn("El modelo no tiene coordenadas UV. Generando UVs básicas...");
-                        const uvAttribute = new Float32Array(child.geometry.attributes.position.count * 2);
-                        for (let i = 0; i < uvAttribute.length; i++) {
-                            uvAttribute[i] = (i % 2 === 0) ? 0 : 1;
-                        }
-                        child.geometry.setAttribute('uv', new THREE.BufferAttribute(uvAttribute, 2));
-                    }
-                }
-            });
-        }
-
-        function detectAndFixScale(model) {
-            const boundingBox = new THREE.Box3().setFromObject(model);
-            const size = boundingBox.getSize(new THREE.Vector3());
-            console.log("Tamaño detectado del modelo (x, y, z):", size);
-
-            let scaleFactor = 1;
-
-            if (size.y > 1000) {
-                console.log("🔍 El modelo está en MILÍMETROS. Convertimos a METROS.");
-                scaleFactor = 0.001; // mm → metros
-            } else if (size.y > 100) {
-                console.log("🔍 El modelo está en CENTÍMETROS. Convertimos a METROS.");
-                scaleFactor = 0.01; // cm → metros
-            }
-
-            return scaleFactor;
-        }
-
-        function applyScaleToGeometry(model, scaleFactor) {
-            model.traverse((child) => {
-                if (child.isMesh) {
-                    console.log(`🔧 Aplicando escala permanente a la geometría con factor: ${scaleFactor}`);
-                    child.geometry.applyMatrix4(new THREE.Matrix4().makeScale(scaleFactor, scaleFactor, scaleFactor));
-                    child.scale.set(1, 1, 1);
-                }
-            });
-        }
-
-        function downloadFile(url, filename) {
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
         }
     </script>
 </body>
