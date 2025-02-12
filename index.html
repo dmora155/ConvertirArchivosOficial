@@ -20,33 +20,34 @@
 <body>
     <h1>Conversión de STL a GLB y de GLB a USDZ</h1>
 
-    <h2>1️⃣ Subir y Convertir STL a GLB</h2>
-    <input type="file" id="stl-file" accept=".stl">
-    <button onclick="processSTL()">Convertir a GLB</button>
-
-    <h2>2️⃣ Convertir GLB a USDZ</h2>
-    <input type="file" id="glb-file" accept=".glb">
-    <button onclick="convertToUSDZ()">Convertir a USDZ</button>
+    <h2>Subir un STL o GLB</h2>
+    <input type="file" id="file-input" accept=".stl, .glb">
+    <button onclick="processFile()">Subir y Convertir</button>
 
     <script>
-        function processSTL() {
-            const fileInput = document.getElementById('stl-file');
+        function processFile() {
+            const fileInput = document.getElementById('file-input');
             const file = fileInput.files[0];
 
             if (!file) {
-                alert("Por favor, selecciona un archivo STL.");
+                alert("Por favor, selecciona un archivo STL o GLB.");
                 return;
             }
 
+            const extension = file.name.split('.').pop().toLowerCase();
+            if (extension === "stl") {
+                processSTL(file);
+            } else if (extension === "glb") {
+                convertToUSDZ(file);
+            } else {
+                alert("Formato no soportado. Solo STL o GLB.");
+            }
+        }
+
+        function processSTL(file) {
             const reader = new FileReader();
             reader.onload = function(event) {
                 console.log("Archivo STL cargado correctamente.");
-
-                if (!THREE.STLLoader) {
-                    console.error("STLLoader no se ha definido correctamente.");
-                    alert("Error: STLLoader no cargado.");
-                    return;
-                }
 
                 const loader = new THREE.STLLoader();
                 const geometry = loader.parse(event.target.result);
@@ -87,27 +88,15 @@
 
                 console.log("URL del archivo GLB generado:", url);
 
-                // Crear un enlace de descarga
-                const downloadLink = document.createElement('a');
-                downloadLink.href = url;
-                downloadLink.download = 'modelo_convertido.glb';
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
+                // Descargar automáticamente el GLB
+                downloadFile(url, "modelo_convertido.glb");
 
-                alert("Modelo GLB exportado y descargado correctamente.");
+                // Convertir automáticamente el GLB a USDZ
+                convertGLBtoUSDZ(blob);
             }, { binary: true });
         }
 
-        function convertToUSDZ() {
-            const fileInput = document.getElementById('glb-file');
-            const file = fileInput.files[0];
-
-            if (!file) {
-                alert("Por favor, selecciona un archivo GLB.");
-                return;
-            }
-
+        function convertToUSDZ(file) {
             const reader = new FileReader();
             reader.onload = function(event) {
                 console.log("Archivo GLB cargado correctamente.");
@@ -128,6 +117,28 @@
             };
 
             reader.readAsArrayBuffer(file);
+        }
+
+        function convertGLBtoUSDZ(blob) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                console.log("Archivo GLB generado, iniciando conversión a USDZ...");
+
+                const loader = new THREE.GLTFLoader();
+                loader.parse(event.target.result, '', function(gltf) {
+                    const scene = gltf.scene;
+
+                    ensureUVs(scene);
+                    const scaleFactor = detectUnitAndAdjustScale(scene);
+                    console.log(`Factor de escala aplicado: ${scaleFactor}`);
+
+                    exportUSDZ(scene, scaleFactor);
+                }, function(error) {
+                    console.error("Error al cargar GLB generado:", error);
+                });
+            };
+
+            reader.readAsArrayBuffer(blob);
         }
 
         function ensureUVs(model) {
@@ -177,14 +188,8 @@
 
                 console.log("URL del archivo USDZ generado:", url);
 
-                const downloadLink = document.createElement("a");
-                downloadLink.href = url;
-                downloadLink.download = "modelo_convertido.usdz";
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
-
-                alert("Modelo USDZ exportado y descargado correctamente.");
+                // Descargar automáticamente el USDZ
+                downloadFile(url, "modelo_convertido.usdz");
             }).catch(function (error) {
                 console.error("Error al exportar a USDZ:", error);
                 alert("Error al convertir a USDZ. Revisa la consola.");
@@ -194,11 +199,19 @@
         function applyScaleToGeometry(model, scaleFactor) {
             model.traverse((child) => {
                 if (child.isMesh) {
-                    console.log(`Aplicando escala permanente a la geometría con factor: ${scaleFactor}`);
                     child.geometry.applyMatrix4(new THREE.Matrix4().makeScale(scaleFactor, scaleFactor, scaleFactor));
                     child.scale.set(1, 1, 1);
                 }
             });
+        }
+
+        function downloadFile(url, filename) {
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     </script>
 </body>
