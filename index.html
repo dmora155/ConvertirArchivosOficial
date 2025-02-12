@@ -56,6 +56,7 @@
 
                 // Escalar correctamente
                 const scaleFactor = detectAndFixScale(mesh);
+                applyScaleToGeometry(mesh, scaleFactor);
                 console.log(`Escalado con factor: ${scaleFactor}`);
 
                 exportGLB(mesh);
@@ -76,12 +77,7 @@
 
                     ensureUVs(scene);
                     const scaleFactor = detectAndFixScale(scene);
-
-                    if (scaleFactor !== 1) {
-                        console.log(`El GLB estaba mal escalado. Se ajustó con factor: ${scaleFactor}`);
-                    } else {
-                        console.log("El GLB ya tenía la escala correcta.");
-                    }
+                    applyScaleToGeometry(scene, scaleFactor);
 
                     exportGLB(scene); // Guardar el GLB corregido
                     exportUSDZ(scene, scaleFactor); // Convertir a USDZ
@@ -152,21 +148,20 @@
             let scaleFactor = 1;
 
             if (size.y > 1000) {
-                console.log("El modelo está en MILÍMETROS. Convertimos a METROS.");
+                console.log("🔍 El modelo está en MILÍMETROS. Convertimos a METROS.");
                 scaleFactor = 0.001; // mm → metros
             } else if (size.y > 100) {
-                console.log("El modelo está en CENTÍMETROS. Convertimos a METROS.");
+                console.log("🔍 El modelo está en CENTÍMETROS. Convertimos a METROS.");
                 scaleFactor = 0.01; // cm → metros
             }
 
-            model.scale.set(scaleFactor, scaleFactor, scaleFactor);
             return scaleFactor;
         }
 
         function applyScaleToGeometry(model, scaleFactor) {
             model.traverse((child) => {
                 if (child.isMesh) {
-                    console.log(`Aplicando escala permanente a la geometría con factor: ${scaleFactor}`);
+                    console.log(`🔧 Aplicando escala permanente a la geometría con factor: ${scaleFactor}`);
                     child.geometry.applyMatrix4(new THREE.Matrix4().makeScale(scaleFactor, scaleFactor, scaleFactor));
                     child.scale.set(1, 1, 1);
                 }
