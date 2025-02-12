@@ -49,16 +49,7 @@
             const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
             const mesh = new THREE.Mesh(geometry, material);
 
-            const scaleFactor = detectScale(mesh);
-            mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
-
             exportGLB(mesh);
-        }
-
-        function detectScale(model) {
-            const boundingBox = new THREE.Box3().setFromObject(model);
-            const size = boundingBox.getSize(new THREE.Vector3());
-            return size.y > 1000 ? 0.001 : (size.y > 100 ? 0.01 : 1);
         }
 
         function exportGLB(model) {
@@ -75,8 +66,6 @@
             const loader = new THREE.GLTFLoader();
             loader.parse(arrayBuffer, '', function(gltf) {
                 const scene = gltf.scene;
-                const scaleFactor = detectScale(scene);
-                scene.scale.set(scaleFactor, scaleFactor, scaleFactor);
                 exportUSDZ(scene);
 
                 if (isDirectUpload) {
