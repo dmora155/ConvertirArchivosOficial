@@ -20,8 +20,8 @@
 <body>
     <h1>Conversión STL ↔ GLB ↔ USDZ</h1>
 
-    <h2>Sube un STL, GLB o USDZ</h2>
-    <input type="file" id="file-input" accept=".stl, .glb, .usdz">
+    <h2>Sube un STL o GLB</h2>
+    <input type="file" id="file-input" accept=".stl, .glb">
     <button onclick="processFile()">Subir y Convertir</button>
 
     <script>
@@ -30,7 +30,7 @@
             const file = fileInput.files[0];
 
             if (!file) {
-                alert("Por favor, selecciona un archivo STL, GLB o USDZ.");
+                alert("Por favor, selecciona un archivo STL o GLB.");
                 return;
             }
 
@@ -39,10 +39,8 @@
                 processSTL(file);
             } else if (extension === "glb") {
                 verifyAndConvertGLB(file);
-            } else if (extension === "usdz") {
-                processUSDZ(file);
             } else {
-                alert("Formato no soportado. Solo STL, GLB o USDZ.");
+                alert("Formato no soportado. Solo STL o GLB.");
             }
         }
 
@@ -64,12 +62,6 @@
             };
 
             reader.readAsArrayBuffer(file);
-        }
-
-        function processUSDZ(file) {
-            console.log("Archivo USDZ cargado. Lo convertiremos a GLB y USDZ corregido.");
-            
-            alert("Por ahora, no se puede cargar USDZ directamente en Three.js. Necesitas convertirlo a GLB primero con otra herramienta.");
         }
 
         function verifyAndConvertGLB(file) {
