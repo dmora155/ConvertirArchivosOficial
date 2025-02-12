@@ -35,7 +35,7 @@
                 if (extension === 'stl') {
                     convertSTLtoGLB(event.target.result);
                 } else if (extension === 'glb') {
-                    convertGLBtoUSDZ(event.target.result);
+                    convertGLBtoUSDZ(event.target.result, true);
                 } else {
                     alert("Formato no compatible.");
                 }
@@ -49,12 +49,16 @@
             const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
             const mesh = new THREE.Mesh(geometry, material);
 
-            const boundingBox = new THREE.Box3().setFromObject(mesh);
-            const size = boundingBox.getSize(new THREE.Vector3());
-            let scaleFactor = size.y > 100 ? 0.01 : (size.y > 10 ? 0.1 : 1);
+            const scaleFactor = detectScale(mesh);
             mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
             exportGLB(mesh);
+        }
+
+        function detectScale(model) {
+            const boundingBox = new THREE.Box3().setFromObject(model);
+            const size = boundingBox.getSize(new THREE.Vector3());
+            return size.y > 1000 ? 0.001 : (size.y > 100 ? 0.01 : 1);
         }
 
         function exportGLB(model) {
@@ -63,24 +67,22 @@
                 const blob = new Blob([gltf], { type: "model/gltf-binary" });
                 const url = URL.createObjectURL(blob);
                 downloadFile(url, 'modelo_convertido.glb');
-                convertGLBtoUSDZ(blob);
+                convertGLBtoUSDZ(blob, false);
             }, { binary: true });
         }
 
-        function convertGLBtoUSDZ(arrayBuffer) {
+        function convertGLBtoUSDZ(arrayBuffer, isDirectUpload) {
             const loader = new THREE.GLTFLoader();
             loader.parse(arrayBuffer, '', function(gltf) {
                 const scene = gltf.scene;
                 const scaleFactor = detectScale(scene);
                 scene.scale.set(scaleFactor, scaleFactor, scaleFactor);
                 exportUSDZ(scene);
-            });
-        }
 
-        function detectScale(model) {
-            const boundingBox = new THREE.Box3().setFromObject(model);
-            const size = boundingBox.getSize(new THREE.Vector3());
-            return size.y > 1000 ? 0.001 : (size.y > 100 ? 0.01 : 1);
+                if (isDirectUpload) {
+                    downloadFile(URL.createObjectURL(new Blob([arrayBuffer], { type: "model/gltf-binary" })), 'modelo_convertido.glb');
+                }
+            });
         }
 
         function exportUSDZ(model) {
