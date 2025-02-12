@@ -3,160 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conversión de Modelos 3D</title>
+    <title>Conversión STL/GLB a USDZ</title>
 
-    <!-- Cargar Three.js -->
+    <!-- Cargar Three.js y dependencias -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-    <!-- Cargar STLLoader, GLTFLoader y los exportadores -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/STLLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/GLTFExporter.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three/examples/js/exporters/USDZExporter.js"></script>
-
-    <!-- Cargar dependencias necesarias para USDZ -->
-    <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.js"></script>
-
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 20px;
-            background-color: #f8f8f8;
-        }
-        button {
-            padding: 10px 15px;
-            font-size: 16px;
-            background-color: #ffcc00;
-            color: black;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 10px;
-        }
-        button:hover {
-            background-color: #ffbb00;
-        }
-        .container {
-            max-width: 600px;
-            margin: auto;
-        }
-        .option {
-            border: 1px solid #ddd;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 10px;
-            background-color: #fff;
-        }
-    </style>
 </head>
 <body>
-
-    <h1>Conversión de Modelos 3D</h1>
-    <p>Selecciona una opción y sube tu archivo STL o GLB para convertirlo.</p>
-
-    <div class="container">
-        <!-- Opción 1: Convertir STL a GLB y USDZ -->
-        <div class="option">
-            <h2>Convertir STL a GLB y USDZ</h2>
-            <input type="file" id="stl-file" accept=".stl">
-            <button onclick="processSTL()">Convertir STL</button>
-        </div>
-
-        <!-- Opción 2: Convertir GLB a USDZ -->
-        <div class="option">
-            <h2>Convertir GLB a USDZ</h2>
-            <input type="file" id="glb-file" accept=".glb">
-            <button onclick="processGLB()">Convertir GLB</button>
-        </div>
-    </div>
-
+    <h1>Conversión de STL o GLB a GLB y USDZ</h1>
+    <p>Selecciona un archivo STL o GLB y conviértelo.</p>
+    
+    <input type="file" id="file-input" accept=".stl,.glb">
+    <button onclick="processFile()">Convertir</button>
+    
     <script>
-        function processSTL() {
-            const fileInput = document.getElementById('stl-file');
+        function processFile() {
+            const fileInput = document.getElementById('file-input');
             const file = fileInput.files[0];
 
             if (!file) {
-                alert("Por favor, selecciona un archivo STL.");
+                alert("Por favor, selecciona un archivo STL o GLB.");
                 return;
             }
 
             const reader = new FileReader();
             reader.onload = function(event) {
-                const loader = new THREE.STLLoader();
-                const geometry = loader.parse(event.target.result);
-                const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
-                const mesh = new THREE.Mesh(geometry, material);
-
-                // Aplicar escala
-                const scaleFactor = detectScale(mesh);
-                mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
-
-                console.log(`Archivo STL procesado con factor de escala: ${scaleFactor}`);
-                exportGLB(mesh);
+                const extension = file.name.split('.').pop().toLowerCase();
+                if (extension === 'stl') {
+                    convertSTLtoGLB(event.target.result);
+                } else if (extension === 'glb') {
+                    convertGLBtoUSDZ(event.target.result);
+                } else {
+                    alert("Formato no compatible.");
+                }
             };
             reader.readAsArrayBuffer(file);
         }
 
-        function processGLB() {
-            const fileInput = document.getElementById('glb-file');
-            const file = fileInput.files[0];
+        function convertSTLtoGLB(arrayBuffer) {
+            const loader = new THREE.STLLoader();
+            const geometry = loader.parse(arrayBuffer);
+            const material = new THREE.MeshStandardMaterial({ color: 0xffffff });
+            const mesh = new THREE.Mesh(geometry, material);
 
-            if (!file) {
-                alert("Por favor, selecciona un archivo GLB.");
-                return;
-            }
+            const boundingBox = new THREE.Box3().setFromObject(mesh);
+            const size = boundingBox.getSize(new THREE.Vector3());
+            let scaleFactor = size.y > 100 ? 0.01 : (size.y > 10 ? 0.1 : 1);
+            mesh.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const loader = new THREE.GLTFLoader();
-                loader.parse(event.target.result, '', function(gltf) {
-                    const scene = gltf.scene;
+            exportGLB(mesh);
+        }
 
-                    // Ajustar escala si es necesario
-                    const scaleFactor = detectScale(scene);
-                    scene.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        function exportGLB(model) {
+            const exporter = new THREE.GLTFExporter();
+            exporter.parse(model, function (gltf) {
+                const blob = new Blob([gltf], { type: "model/gltf-binary" });
+                const url = URL.createObjectURL(blob);
+                downloadFile(url, 'modelo_convertido.glb');
+                convertGLBtoUSDZ(blob);
+            }, { binary: true });
+        }
 
-                    console.log(`Archivo GLB procesado con factor de escala: ${scaleFactor}`);
-                    exportUSDZ(scene);
-                });
-            };
-            reader.readAsArrayBuffer(file);
+        function convertGLBtoUSDZ(arrayBuffer) {
+            const loader = new THREE.GLTFLoader();
+            loader.parse(arrayBuffer, '', function(gltf) {
+                const scene = gltf.scene;
+                const scaleFactor = detectScale(scene);
+                scene.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                exportUSDZ(scene);
+            });
         }
 
         function detectScale(model) {
             const boundingBox = new THREE.Box3().setFromObject(model);
             const size = boundingBox.getSize(new THREE.Vector3());
-            const maxDimension = Math.max(size.x, size.y, size.z);
-
-            if (maxDimension > 1000) return 0.001; // mm a metros
-            if (maxDimension > 100) return 0.01; // cm a metros
-            return 1; // Ya está en metros
-        }
-
-        function exportGLB(model) {
-            const exporter = new THREE.GLTFExporter();
-            exporter.parse(model, function(gltf) {
-                const blob = new Blob([gltf], { type: "model/gltf-binary" });
-                const url = URL.createObjectURL(blob);
-
-                // Crear enlace de descarga
-                const downloadLink = document.createElement('a');
-                downloadLink.href = url;
-                downloadLink.download = 'modelo_convertido.glb';
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
-
-                alert("Modelo GLB exportado correctamente.");
-                
-                // Proceder a convertir a USDZ
-                exportUSDZ(model);
-            }, { binary: true });
+            return size.y > 1000 ? 0.001 : (size.y > 100 ? 0.01 : 1);
         }
 
         function exportUSDZ(model) {
             const exporter = new THREE.USDZExporter();
             exporter.parse(model).then(function (arraybuffer) {
-                const blob = new Blob([arraybuffer], { type: "model/vnd.us
+                const blob = new Blob([arraybuffer], { type: "model/vnd.usdz+zip" });
+                const url = URL.createObjectURL(blob);
+                downloadFile(url, 'modelo_convertido.usdz');
+            });
+        }
+
+        function downloadFile(url, filename) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
